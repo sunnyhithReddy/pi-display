@@ -1,108 +1,234 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Pi Display Controller</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 20px;
       background: #111827;
       color: #f9fafb;
-      margin: 0;
-      padding: 24px;
       display: flex;
       justify-content: center;
+      min-height: 100vh;
     }
-    .card {
+
+    .remote {
       width: 100%;
-      max-width: 520px;
+      max-width: 360px;
       background: #1f2937;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      border: 2px solid #374151;
+      border-radius: 28px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
-    h1 { margin-top: 0; font-size: 1.4rem; }
-    label { display: block; margin: 16px 0 6px; font-size: 0.9rem; color: #d1d5db; }
-    textarea, input[type="file"] {
+
+    .upload-btn {
       width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #374151;
-      background: #111827;
-      color: #f9fafb;
-      font-size: 1rem;
-    }
-    button {
-      margin-top: 12px;
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      background: #3b82f6;
+      padding: 16px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 14px;
+      border: 2px solid #3b82f6;
+      background: #2563eb;
       color: white;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .upload-btn:disabled {
+      background: #374151;
+      border-color: #4b5563;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .slot-btn {
+      position: relative;
+      height: 82px;
+      border-radius: 16px;
+      border: 2px solid #4b5563;
+      background: #111827;
+      color: #e5e7eb;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
     }
-    button:hover { background: #2563eb; }
-    .status {
-      margin-top: 16px;
-      font-size: 0.85rem;
+
+    .slot-btn.selected {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+    }
+
+    .slot-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .slot-label {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+    }
+
+    .power-btn {
+      height: 82px;
+      border-radius: 16px;
+      border: 2px solid #10b981;
+      background: #065f46;
+      color: #ecfdf5;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .power-btn.off {
+      border-color: #ef4444;
+      background: #7f1d1d;
+      color: #fef2f2;
+    }
+
+    .ip-bar {
+      text-align: center;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid #4b5563;
+      background: #111827;
       color: #9ca3af;
-      word-break: break-word;
+      font-family: monospace;
+      font-size: 0.9rem;
     }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <h1>Pi Display Controller</h1>
+  <div class="remote">
+    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
+    <button id="uploadBtn" class="upload-btn" disabled>Upload to Selected Slot</button>
 
-    <label for="textInput">Display Text</label>
-    <textarea id="textInput" rows="3" placeholder="Enter message to show on display..."></textarea>
-    <button id="sendTextBtn">Show Text</button>
+    <div class="grid" id="grid">
+      <button class="slot-btn" data-slot="img1"><span class="slot-label">img1</span></button>
+      <button class="slot-btn" data-slot="img2"><span class="slot-label">img2</span></button>
+      <button class="slot-btn" data-slot="img3"><span class="slot-label">img3</span></button>
+      <button class="slot-btn" data-slot="img4"><span class="slot-label">img4</span></button>
+      <button class="slot-btn" data-slot="img5"><span class="slot-label">img5</span></button>
+      <button class="slot-btn" data-slot="img6"><span class="slot-label">img6</span></button>
+      <button class="slot-btn" data-slot="img7"><span class="slot-label">img7</span></button>
+      <button id="powerBtn" class="power-btn">ON / OFF</button>
+    </div>
 
-    <label for="mediaInput">Upload Image or Video</label>
-    <input id="mediaInput" type="file" accept="image/*,video/*" />
-    <button id="uploadBtn">Upload &amp; Show Media</button>
-
-    <div class="status" id="status">Loading state...</div>
+    <div class="ip-bar" id="hostDisplay"></div>
   </div>
 
   <script>
-    const statusEl = document.getElementById('status');
-    const textInput = document.getElementById('textInput');
-    const mediaInput = document.getElementById('mediaInput');
+    const socket = io();
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const powerBtn = document.getElementById('powerBtn');
+    const slotButtons = document.querySelectorAll('.slot-btn');
+    document.getElementById('hostDisplay').textContent = window.location.host;
 
-    function renderStatus(state) {
-      statusEl.textContent = `Current mode: ${state.mode} | Updated: ${state.updatedAt || 'never'}`;
+    let selectedSlot = null;
+    let currentState = null;
+
+    function render() {
+      if (!currentState) return;
+
+      uploadBtn.disabled = !selectedSlot;
+      uploadBtn.textContent = selectedSlot ? `Upload (${selectedSlot})` : 'Upload';
+
+      slotButtons.forEach((btn) => {
+        const slot = btn.dataset.slot;
+        const imgUrl = currentState.slots[slot];
+        btn.classList.toggle('selected', slot === selectedSlot);
+
+        const existingImg = btn.querySelector('img');
+        if (imgUrl) {
+          if (existingImg) {
+            if (existingImg.getAttribute('src') !== imgUrl) existingImg.src = imgUrl;
+          } else {
+            const img = document.createElement('img');
+            img.src = imgUrl;
+            btn.prepend(img);
+          }
+        }
+      });
+
+      powerBtn.textContent = currentState.monitorOn ? 'Monitor: ON' : 'Monitor: OFF';
+      powerBtn.classList.toggle('off', !currentState.monitorOn);
     }
 
-    fetch('/api/state')
-      .then((r) => r.json())
-      .then((state) => {
-        if (state.text) textInput.value = state.text;
-        renderStatus(state);
-      });
-
-    document.getElementById('sendTextBtn').addEventListener('click', async () => {
-      const res = await fetch('/api/text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textInput.value })
-      });
-      renderStatus(await res.json());
+    socket.on('stateUpdate', (state) => {
+      currentState = state;
+      if (!selectedSlot && state.activeSlot) selectedSlot = state.activeSlot;
+      render();
     });
 
-    document.getElementById('uploadBtn').addEventListener('click', async () => {
-      const file = mediaInput.files[0];
-      if (!file) return alert('Select an image or video first.');
-      const form = new FormData();
-      form.append('media', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: form });
-      renderStatus(await res.json());
+    slotButtons.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        selectedSlot = btn.dataset.slot;
+        render();
+
+        // Tell the Pi to display this slot's stored image/GIF on the portable monitor
+        await fetch(`/api/select/${selectedSlot}`, { method: 'POST' });
+      });
+    });
+
+    uploadBtn.addEventListener('click', () => {
+      if (selectedSlot) fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async () => {
+      if (!fileInput.files.length || !selectedSlot) return;
+
+      const formData = new FormData();
+      formData.append('media', fileInput.files[0]);
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Uploading...';
+
+      try {
+        await fetch(`/api/upload/${selectedSlot}`, {
+          method: 'POST',
+          body: formData
+        });
+      } finally {
+        fileInput.value = '';
+        render();
+      }
+    });
+
+    powerBtn.addEventListener('click', async () => {
+      await fetch('/api/monitor/toggle', { method: 'POST' });
     });
   </script>
 </body>
+
 </html>
